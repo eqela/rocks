@@ -1,0 +1,65 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class:
+
+func forText(text as string) static as this:
+	return new this().parse(text)
+
+prop command as string
+prop parameters as vector<string>
+
+func isCommand(value as string) as bool
+{
+	if command && value && String.equals(value, command):
+		return true
+	return false
+}
+
+func addParameter(value as string) as this
+{
+	if value {
+		if not parameters:
+			parameters = new vector<string>
+		parameters += value
+	}
+	return this
+}
+
+func getParameter(index as int) as string
+{
+	assert parameters
+	return Vector.get(parameters, index)
+}
+
+func parse(text as string) as this
+{
+	var vv = String.quotedStringToVector(text, ' ')
+	if vv {
+		setCommand(Vector.get(vv, 0))
+		Vector.removeFirst(vv)
+		setParameters(vv)
+	}
+	else {
+		setCommand(null)
+		setParameters(null)
+	}
+	if String.isEmpty(command):
+		return null
+	return this
+}

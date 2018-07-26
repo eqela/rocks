@@ -1,0 +1,264 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class:
+
+class Exclusion public
+{
+	prop groupId as string
+	prop artifactId as string
+}
+
+class Dependency public
+{
+	prop groupId as string
+	prop artifactId as string
+	prop version as string
+	prop type as string
+	prop scope as string
+	prop optional as string
+	prop exclusions as vector<Exclusion>
+}
+
+class Person public
+{
+	prop id as string
+	prop name as string
+	prop email as string
+	prop url as string
+	prop organization as string
+	prop organizationUrl as string
+	prop roles as vector<string>
+	prop timezone as string
+	prop properties as KeyValueListForStrings
+}
+
+class License public
+{
+	prop name as string
+	prop url as string
+	prop distribution as string
+	prop comments as string
+}
+
+class MailingList public
+{
+	prop name as string
+	prop subscribe as string
+	prop unsubscribe as string
+	prop post as string
+	prop archive as string
+	prop otherArchives as vector<string>
+}
+
+class SCM public
+{
+	prop connection as string
+	prop developerConnection as string
+	prop tag as string
+	prop url as string
+}
+
+class Parent public
+{
+	prop groupId as string
+	prop artifactId as string
+	prop version as string
+	prop relativePath as string
+}
+
+class Organization public
+{
+	prop name as string
+	prop url as string
+}
+
+class IssueManagement public
+{
+	prop system as string
+	prop url as string
+}
+
+class RepositoryComponent public
+{
+	prop enabled as string
+	prop updatePolicy as string
+	prop checksumPolicy as string
+}
+
+class Repository public
+{
+	prop id as string
+	prop name as string
+	prop url as string
+	prop layout as string
+	prop releases as RepositoryComponent
+	prop snapshots as RepositoryComponent
+}
+
+class BuildResource public
+{
+	prop targetPath as string
+	prop filtering as string
+	prop directory as string
+	prop includes as vector<string>
+	prop excludes as vector<string>
+}
+
+class Configuration public
+{
+	prop name as string
+	prop params as DynamicMap
+	prop values as KeyValueListForStrings
+	prop children as vector<this>
+
+	func addToValues(key as string, value as string)
+	{
+		if values == null:
+			values = new KeyValueListForStrings()
+		values.add(key, value)
+	}
+
+	func addToChildren(x as this)
+	{
+		assert x
+		if children == null:
+			children = new vector<this>
+		children += x
+	}
+}
+
+class BuildExecution public
+{
+	prop id as string
+	prop goals as vector<string>
+	prop phase as string
+	prop inherited as string
+	prop configuration as Configuration
+}
+
+class BuildPlugin public
+{
+	prop groupId as string
+	prop artifactId as string
+	prop version as string
+	prop extensions as string
+	prop inherited as string
+	prop configuration as Configuration
+	prop dependencies as vector<Dependency>
+	prop executions as vector<BuildExecution>
+}
+
+class BuildExtension public
+{
+	prop groupId as string
+	prop artifactId as string
+	prop version as string
+}
+
+class Build public
+{
+	prop defaultGoal as string
+	prop directory as string
+	prop finalName as string
+	prop filters as vector<string>
+	prop resources as vector<BuildResource>
+	prop testResources as vector<BuildResource>
+	prop plugins as vector<BuildPlugin>
+	prop pluginManagement as vector<BuildPlugin>
+	prop sourceDirectory as string
+	prop scriptSourceDirectory as string
+	prop testSourceDirectory as string
+	prop outputDirectory as string
+	prop testOutputDirectory as string
+	prop extensions as vector<BuildExtension>
+}
+
+class ReportSet public
+{
+	prop id as string
+	prop reports as vector<string>
+	prop inherited as string
+	prop configuration as Configuration
+}
+
+class ReportingPlugin public
+{
+	prop groupId as string
+	prop artifactId as string
+	prop version as string
+	prop reportSets as vector<ReportSet>
+}
+
+class Reporting public
+{
+	prop outputDirectory as string
+	prop plugins as vector<ReportingPlugin>
+}
+
+class CIManagementNotifier public
+{
+	prop type as string
+	prop sendOnError as string
+	prop sendOnFailure as string
+	prop sendOnSuccess as string
+	prop sendOnWarning as string
+	prop configuration as Configuration
+}
+
+class CIManagement public
+{
+	prop system as string
+	prop url as string
+	prop notifiers as vector<CIManagementNotifier>
+}
+
+prop modelVersion as string
+prop groupId as string
+prop artifactId as string
+prop version as string
+prop packaging as string
+prop dependencies as vector<Dependency>
+prop parent as Parent
+prop dependencyManagement as vector<Dependency>
+prop modules as vector<string>
+prop properties as KeyValueListForStrings
+prop build as Build
+prop reporting as Reporting
+prop name as string
+prop description as string
+prop url as string
+prop inceptionYear as string
+prop licenses as vector<License>
+prop organization as Organization
+prop developers as vector<Person>
+prop contributors as vector<Person>
+prop issueManagement as IssueManagement
+prop ciManagement as CIManagement
+prop mailingLists as vector<MailingList>
+prop scm as SCM
+prop prerequisites as KeyValueListForStrings
+prop repositories as vector<Repository>
+prop pluginRepositories as vector<Repository>
+// FIXME: distributionManagement
+// FIXME: profiles
+
+ctor
+{
+	modelVersion = "4.0.0"
+}

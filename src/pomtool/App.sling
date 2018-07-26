@@ -1,0 +1,133 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is ConsoleApplicationMain:
+
+import capex.console
+
+main:
+	return executeMain(new this(), args)
+
+var spaces = false
+var diff = false
+var replace = false
+var output as string
+var parameters as vector<string>
+var actions = new vector<ActionCommand>
+
+func initialize override as bool
+{
+	foreach arg in args {
+		if arg.isFlag("v") || arg.isFlag("version") || arg.isFlag("h") || arg.isFlag("help") {
+			ConsoleApplication.PRINT_HEADER(stdout, null)
+			return false
+		}
+		else if arg.isFlag("spaces") {
+			spaces = true
+		}
+		else if arg.isFlag("diff") {
+			diff = true
+		}
+		else if arg.isFlag("replace") {
+			replace = true
+		}
+		else if arg.isOption("output") {
+			output = arg.value
+		}
+		else if arg.isOption("execute") {
+			var ca = assert ActionCommand.forText(arg.value):
+				Log.error(ctx, "Invalid action command: `" .. arg.value .. "'")
+			actions += ca
+		}
+		else if String.startsWith(arg.key, "x-") {
+			var cmd = new ActionCommand()
+			cmd.setCommand(String.getSubString(arg.key, 2))
+			cmd.setParameters(String.quotedStringToVector(arg.value, ',', false))
+			actions += cmd
+		}
+		else if String.startsWith(arg.flag, "x-") {
+			var cmd = new ActionCommand()
+			cmd.setCommand(String.getSubString(arg.flag, 2))
+			cmd.setParameters(new vector<string>)
+			actions += cmd
+		}
+		else if arg.isParameter() {
+			if not parameters:
+				parameters = new vector<string>
+			parameters += arg.parameter
+		}
+		else {
+			arg.reportAsUnsupported(ctx)
+			return false
+		}
+	}
+	return true
+}
+
+func execute override as bool
+{
+	assert Vector.isNotEmpty(parameters):
+		Log.error(ctx, "No file specified")
+	if replace && output {
+		Log.error(ctx, "You cannot use both -replace and -output=")
+		return false
+	}
+	if replace && diff {
+		Log.error(ctx, "You cannot use both -replace and -diff")
+		return false
+	}
+	var v = true
+	foreach param in parameters {
+		var ee = new POMFileEditor()
+		ee.setContext(ctx)
+		ee.setIndentWithTab(!spaces)
+		ee.setActions(actions)
+		var file = File.forPath(param)
+		ee.setFile(file)
+		var data as string
+		if diff {
+			data = ee.getDiff()
+		}
+		else {
+			data = ee.getModifiedContent()
+		}
+		if not data {
+			Log.error(ctx, "Failed to process: `" .. file.getPath() .. "'")
+			v = false
+			break
+		}
+		if replace || output {
+			var of as File
+			if replace {
+				of = file
+			}
+			else if output {
+				of = File.forPath(output)
+			}
+			if of.setContentsUTF8(data) == false {
+				Log.error(ctx, "Failed to write file: `" .. of.getPath() .. "'")
+				v = false
+				break
+			}
+		}
+		else {
+			stdout.print(data)
+		}
+	}
+	return v
+}

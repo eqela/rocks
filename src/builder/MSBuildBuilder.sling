@@ -1,0 +1,101 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is Builder:
+
+func getBuilderId as string:
+	return "msbuild"
+
+func executeMsbuild(executable as File, projectDirectory as File, target as string, output as StringBuilder) as bool
+{
+	if not executable:
+		return false
+	var pl = ProcessLauncher.forFile(executable)
+	if target:
+		pl.addToParams("/t:" .. target)
+	pl.setCwd(projectDirectory)
+	var oo = pl.executeToString()
+	if not oo:
+		return false
+	if output:
+		output.append(oo)
+	if String.indexOf(oo, "Build succeeded") >= 0:
+		return true
+	return false
+}
+
+func canBuild(dir as File) as bool
+{
+	assert dir
+	if CSProjUtil.findNetFrameworkProjectFile(dir):
+		return true
+	return false
+}
+
+func execute(ctx as MyContext, sourceDirectory as File, destinationDirectory as File) as bool
+{
+	var dir = assert sourceDirectory:
+		ctx.error("No source directory")
+	assert dir.isDirectory():
+		ctx.error("Source directory does not exist: `" .. ctx.fileToString(dir) .. "'")
+	ctx.debug("Using source directory: `" .. ctx.fileToString(dir) .. "'")
+	var msbuild = assert ctx.findCommand(ctx.getMsbuildPath(), "msbuild")
+	if ctx.getUpdateDependencies() {
+		var projectjson = dir.entry("project.json")
+		if projectjson.isFile() {
+			ctx.debug("A project.json file is present: `" .. ctx.fileToString(projectjson) .. "'. Attempting to restore packages.")
+			ctx.status("[MSBuild] Updating package dependencies ..")
+			var bb = new StringBuilder()
+			assert executeMsbuild(msbuild, dir, "restore", bb) {
+				ctx.error("Failed to restore packages in: `" .. ctx.fileToString(dir) .. "'")
+				if ctx.getParanoid() == false:
+					ctx.info(bb.toString())
+			}
+			if ctx.getParanoid() == false:
+				ctx.debug("Packages successfully restored. Complete output: `" .. bb.toString() .. "'")
+		}
+	}
+	ctx.status("[MSBuild] Compiling ..")
+	var bb = new StringBuilder()
+	assert executeMsbuild(msbuild, dir, null, bb) {
+		ctx.error("Failed to compile: `" .. ctx.fileToString(dir) .. "'")
+		if ctx.getParanoid() == false:
+			ctx.info(bb.toString())
+	}
+	ctx.debug("Compilation succesful")
+	var destdir = destinationDirectory
+	if destdir {
+		destdir.createDirectoryRecursive()
+		var builddir = dir.entry("build")
+		if not builddir.isDirectory():
+			builddir = dir.entry("bin").entry("Debug")
+		if not builddir.isDirectory():
+			builddir = dir.entry("bin").entry("Release")
+		var ee = builddir.entries()
+		while ee {
+			var file = ee.next()
+			if not file:
+				break
+			var dest = destdir.entry(file.baseName())
+			ctx.debug("Copying `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "' ..")
+			assert file.copyFileOrDirectoryTo(dest):
+				ctx.error("Failed to copy `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "'")
+		}
+	}
+	return true
+}

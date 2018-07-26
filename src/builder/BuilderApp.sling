@@ -1,0 +1,143 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is ConsoleApplicationMain:
+
+import capex.console
+
+func asBool(v as int) private as bool:
+	return v == 0
+
+func findBuilderForProject(ctx as MyContext, proj as File, builders as vector<Builder>) as Builder
+{
+	foreach builder in builders {
+		if builder.canBuild(proj) {
+			ctx.debug("Builder found for project `" .. ctx.fileToString(proj) .. "': `" .. builder.getBuilderId() .. "'")
+			return builder
+		}
+	}
+	ctx.debug("No builder was found for project: `" .. ctx.fileToString(proj) .. "'")
+	return null
+}
+
+func execute override as bool
+{
+	var ctx = new MyContext()
+	ctx.setCtx(this.ctx)
+	var eqelaDebug = Environment.getVariable("EQELA_DEBUG")
+	if eqelaDebug && Boolean.asBoolean(eqelaDebug) == true:
+		ctx.setDebugMode(true)
+	var useBuilder as string
+	var src as File
+	var dest as File
+	foreach arg in args {
+		if arg.isParameter() && not src {
+			src = File.forPath(arg.parameter)
+		}
+		else if arg.isFlag("debug") {
+			ctx.setDebugMode(true)
+		}
+		else if arg.isOption("builder") {
+			useBuilder = arg.getStringValue()
+		}
+		else if arg.isOption("output") {
+			dest = File.forPath(arg.getStringValue())
+		}
+		else if arg.isFlag("findCommandsInPath") {
+			ctx.setSearchCommandsInPath(true)
+		}
+		else if arg.isOption("release") {
+			ctx.setBuildRelease(Boolean.asBoolean(arg.getStringValue()))
+		}
+		else if arg.isFlag("release") {
+			ctx.setBuildRelease(true)
+		}
+		else if arg.isOption("target") {
+			ctx.setTargetPlatform(arg.getStringValue())
+		}
+		else if arg.isOption("gradlePath") {
+			ctx.setGradlePath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("msbuildPath") {
+			ctx.setMsbuildPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("dotnetPath") {
+			ctx.setDotnetPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("npmPath") {
+			ctx.setNpmPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("npxPath") {
+			ctx.setNpxPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("podPath") {
+			ctx.setPodPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("xcodebuildPath") {
+			ctx.setXcodebuildPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("androidSdkPath") {
+			ctx.setAndroidSdkPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("androidStudioPath") {
+			ctx.setAndroidStudioPath(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isOption("libdir") {
+			ctx.addToLibdirs(File.forPath(arg.getStringValue()))
+		}
+		else if arg.isFlag("noUpdateDependencies") {
+			ctx.setUpdateDependencies(false)
+		}
+		else {
+			ctx.error("Unsupported argument: `" .. arg.getComplete() .. "'")
+			return false
+		}
+	}
+	assert src:
+		ctx.error("No project path supplied")
+	assert dest:
+		ctx.error("No destination directory supplied")
+	var builders = new vector<Builder>
+	builders += new AndroidGradleBuilder()
+	builders += new MSBuildBuilder()
+	builders += new NetCoreBuilder()
+	builders += new NPMBuilder()
+	builders += new XCodeProjectBuilder()
+	var builder as Builder
+	if useBuilder {
+		foreach bb in builders {
+			if String.equals(bb.getBuilderId(), useBuilder) {
+				builder = bb
+				break
+			}
+		}
+		assert builder:
+			ctx.error("No such builder: `" .. useBuilder .. "'")
+	}
+	else {
+		assert builder = findBuilderForProject(ctx, src, builders):
+			ctx.error("Unsupported project: `" .. ctx.fileToString(src) .. "'")
+	}
+	assert builder.execute(ctx, src, dest):
+		ctx.error("Failed to compile: `" .. ctx.fileToString(src) .. "'")
+	ctx.status(null)
+	return true
+}
+
+main:
+	return executeMain(new this(), args)

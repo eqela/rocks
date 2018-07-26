@@ -1,0 +1,121 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class:
+
+func splitToNameAndVersion(file as File) static as array<string>
+{
+	assert file
+	if not file.hasExtension("nupkg"):
+		return null
+	return splitToNameAndVersion(file.baseNameWithoutExtension())
+}
+
+func splitToNameAndVersion(idname as string) static as array<string>
+{
+	var namesb = new StringBuilder()
+	var versb = new StringBuilder()
+	var verflag = false
+	foreach comp in String.split(idname, '.') {
+		if verflag == false {
+			if Character.isDigit(String.getChar(comp, 0)) {
+				verflag = true
+			}
+			else {
+				if namesb.count() > 0:
+					namesb.append('.')
+				namesb.append(comp)
+			}
+		}
+		if verflag {
+			if versb.count() > 0:
+				versb.append('.')
+			versb.append(comp)
+		}
+	}
+	return new string[] {
+		namesb.toString(),
+		versb.toString()
+	}
+}
+
+func getPackageCacheDir(dotnet as File) static as File
+{
+	if dotnet {
+		var pl = ProcessLauncher.forFile(dotnet)
+		pl.addToParams("nuget")
+		pl.addToParams("locals")
+		pl.addToParams("global-packages")
+		pl.addToParams("--list")
+		var r = pl.executeToString()
+		if r {
+			r = String.strip(r)
+			var i = String.indexOf(r, "global-packages:")
+			if i >= 0 {
+				var v = String.strip(String.getSubString(r, i + 16))
+				if String.getLength(v) > 0:
+					return File.forPath(v)
+			}
+		}
+	}
+	var hd = Environment.getHomeDirectory()
+	if hd {
+		return hd.entry(".nuget").entry("packages")
+	}
+	return null
+}
+
+func clearPackageFromNugetCache(ctx as MyContext, dotnet as File, name as string, version as string) static as bool
+{
+	assert name
+	var pcd = assert getPackageCacheDir(dotnet):
+		ctx.warning("Failed to determine Nuget package cache directory")
+	ctx.debug("Package cache directory detected: `" .. ctx.fileToString(pcd) .. "'")
+	var f = pcd.entry(name)
+	if version:
+		f = f.entry(version)
+	ctx.debug("Cached package directory for nupkg name=`" .. name .. "', version=`" .. version .. "': `" .. ctx.fileToString(f) .. "'")
+	if not f.exists() {
+		ctx.debug("No cached package directory exists: `" .. ctx.fileToString(f) .. "'")
+		return true
+	}
+	assert f.removeRecursive():
+		ctx.error("Failed to remove package directory: `" .. ctx.fileToString(f) .. "'")
+	ctx.debug("Removed cache package directory: `" .. ctx.fileToString(f) .. "'")
+	return true
+}
+
+func clearLocalPackagesFromNugetCache(ctx as MyContext, dotnet as File, dir as File) static as bool
+{
+	assert dir
+	var it = assert dir.entries()
+	var v = true
+	loop {
+		var f = it.next()
+		if not f:
+			break
+		if not f.hasExtension("nupkg"):
+			continue
+		var cc = splitToNameAndVersion(f)
+		if not cc:
+			continue
+		if not clearPackageFromNugetCache(ctx, dotnet, cc[0], cc[1]):
+			v = false
+	}
+	return v
+}

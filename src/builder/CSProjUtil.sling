@@ -1,0 +1,111 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class:
+
+import capex.text
+
+func findNetFrameworkProjectFile(dir as File) static as File
+{
+	assert dir
+	var v as File
+	var it = dir.entries()
+	while it {
+		var f = it.next()
+		if not f:
+			break
+		if f.hasExtension("sln"):
+			return f
+		if v == null && f.hasExtension("csproj") {
+			if isNetCoreProject(f) == false {
+				v = f
+				break
+			}
+		}
+	}
+	return v
+}
+
+func findNetCoreProjectFile(dir as File) static as File
+{
+	assert dir
+	var v as File
+	var it = dir.entries()
+	while it {
+		var f = it.next()
+		if not f:
+			break
+		if v == null && f.hasExtension("csproj") {
+			if isNetCoreProject(f) {
+				v = f
+				break
+			}
+		}
+	}
+	return v
+}
+
+func isNetCoreProject(file as File) static as bool
+{
+	var xp = XMLParser.forFile(file)
+	if not xp:
+		return false
+	var v = false
+	loop {
+		var e = xp.next()
+		if not e:
+			break
+		if e is XMLParser.StartElement && (e as! XMLParser.StartElement).getName() == "Project" {
+			if((e as! XMLParser.StartElement).getParam("Sdk") != null):
+				return true
+		}
+	}
+	return v
+}
+
+func isAppProject(dir as File) static as bool
+{
+	assert dir
+	var it = dir.entries()
+	while it {
+		var f = it.next()
+		if not f:
+			break
+		if not f.hasExtension("csproj"):
+			continue
+		var xp = XMLParser.forFile(f)
+		if not xp:
+			continue
+		var outputTypeFlag = false
+		loop {
+			var e = xp.next()
+			if not e:
+				break
+			if e is XMLParser.StartElement && (e as! XMLParser.StartElement).getName() == "OutputType":
+				outputTypeFlag = true
+			if e is XMLParser.EndElement && (e as! XMLParser.EndElement).getName() == "OutputType":
+				outputTypeFlag = false
+			if outputTypeFlag && e is XMLParser.CharacterData {
+				var str = (e as! XMLParser.CharacterData).getData()
+				if str && str != "Library":
+					return true
+			}
+		}
+	}
+	return false
+}

@@ -1,0 +1,129 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class:
+
+import capex.console
+
+prop ctx as ConsoleApplicationContext
+prop paranoid = false
+prop paths = new map<string,string>
+prop options = new map<string,string>
+prop searchCommandsInPath = false
+prop gradlePath as File
+prop msbuildPath as File
+prop dotnetPath as File
+prop npmPath as File
+prop npxPath as File
+prop podPath as File
+prop xcodebuildPath as File
+prop androidSdkPath as File
+prop androidStudioPath as File
+prop buildRelease = false
+prop targetPlatform as string
+prop updateDependencies = true
+prop libdirs as vector<File>
+
+func setDebugMode(v as bool)
+{
+	if v {
+		ctx.setEnableDebugMessages(true)
+	}
+	else {
+		ctx.setEnableDebugMessages(false)
+	}
+}
+
+func addToLibdirs(dir as File)
+{
+	assert dir
+	if not libdirs:
+		libdirs = new vector<File>
+	libdirs += dir
+}
+
+func isDebug as bool:
+	return ctx.isInDebugMode()
+
+func debug(message as string):
+	Log.debug(ctx, message)
+
+func info(message as string):
+	Log.info(ctx, message)
+
+func warning(message as string):
+	Log.warning(ctx, message)
+
+func error(message as string):
+	Log.error(ctx, message)
+
+func status(message as string):
+	Log.status(ctx, message)
+
+func fileToString(file as File) as string
+{
+	assert file
+	if paranoid {
+		var bn = file.baseName()
+		var dn as string
+		var pp = file.getParent()
+		if pp:
+			dn = pp.baseName()
+		if String.isEmpty(dn):
+			return bn
+		var sb = new StringBuilder()
+		sb.append(dn)
+		sb.append(Environment.getPathSeparator())
+		sb.append(bn)
+		return sb.toString()
+	}
+	return file.getPath()
+}
+
+func tryFindCommand(path as File, name as string) as File
+{
+	assert name
+	if path {
+		if path.isFile():
+			return path
+		if path.isDirectory() {
+			var vv = path.entry(name).asExecutable()
+			if vv.isFile() == false:
+				vv = path.entry("bin").entry(name).asExecutable()
+			if vv.isFile():
+				return vv
+		}
+		debug("Not a valid path for `" .. name .. "': `" .. fileToString(path) .. "'")
+		return null
+	}
+	if searchCommandsInPath {
+		var exe = Environment.findCommand(name)
+		if exe && exe.isFile():
+			return exe
+	}
+	debug("Command not found: `" .. name .. "'")
+	return null
+}
+
+func findCommand(path as File, name as string) as File
+{
+	var v = assert tryFindCommand(path, name):
+		error("Command not found: `" .. name .. "'")
+	debug("Found command `" .. name .. "': `" .. fileToString(v) .. "'")
+	return v
+}
