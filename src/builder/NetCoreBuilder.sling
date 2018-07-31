@@ -134,6 +134,19 @@ func execute(ctx as MyContext, sourceDirectory as File, destinationDirectory as 
 			assert file.copyFileOrDirectoryTo(dest):
 				ctx.error("Failed to copy `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "'")
 		}
+		var see = dir.entries()
+		while see {
+			var file = see.next()
+			if not file:
+				break
+			var bn = file.baseName()
+			if String.startsWith(bn, "apidoc") && String.endsWith(bn, ".json") {
+				var dest = destdir.entry(bn)
+				ctx.debug("Copying `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "' ..")
+				assert file.copyFileTo(dest):
+					ctx.error("Failed to copy `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "'")
+			}
+		}
 	}
 	return true
 }

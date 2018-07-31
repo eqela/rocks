@@ -17,8 +17,8 @@
 #
 
 use eqela:jsh:r3
-use eqela:slingbuild:r7
-set version r2
+use eqela:slingbuild:r8
+set version r3
 
 main {
 	call buildBuilder
