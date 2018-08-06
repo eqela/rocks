@@ -95,7 +95,7 @@ func fileToString(file as File) as string
 	return file.getPath()
 }
 
-func tryFindCommand(path as File, name as string) as File
+func tryFindCommand(path as File, name as string, environmentVariableName as string = null) as File
 {
 	assert name
 	if path {
@@ -110,6 +110,12 @@ func tryFindCommand(path as File, name as string) as File
 		}
 		debug("Not a valid path for `" .. name .. "': `" .. fileToString(path) .. "'")
 		return null
+	}
+	if String.isNotEmpty(environmentVariableName) {
+		var pp = Environment.getVariable(environmentVariableName)
+		var ff = File.forPath(pp).asExecutable()
+		if ff.isFile():
+			return ff
 	}
 	if searchCommandsInPath {
 		var exe = Environment.findCommand(name)
