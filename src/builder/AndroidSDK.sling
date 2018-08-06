@@ -51,7 +51,7 @@ func findAndroidSDKDirectory(ctx as MyContext) static as File
 		if cAndroidSdk.isDirectory():
 			return cAndroidSdk
 		var appDataPath as string
-		IFDEF "target_dotnet4cs" {
+		IFDEF "target_netx" {
 			appDataPath = lang "cs" string {{{ System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData) }}}
 		}
 		if String.isEmpty(appDataPath) {
@@ -62,7 +62,7 @@ func findAndroidSDKDirectory(ctx as MyContext) static as File
 			if dd.isDirectory():
 				return dd
 		}
-		IFDEF "target_dotnet4cs" {
+		IFDEF "target_netx" {
 			var progFiles = lang "cs" string {{{ System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFiles) }}}
 			if String.isEmpty(progFiles) == false {
 				var dd = File.forPath(progFiles).entry("Android").entry("android-sdk")

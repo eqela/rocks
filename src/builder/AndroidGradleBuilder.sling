@@ -49,7 +49,7 @@ func findGradleExecutable(ctx as MyContext) private as File
 			androidStudioDir = File.forPath("/Applications/Android Studio.app/Contents/gradle")
 		}
 		else if OS.isWindows() {
-			IFDEF("target_dotnet4cs") {
+			IFDEF("target_netx") {
 				androidStudioDir = File.forPath(lang "cs" string {{{ System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFiles) }}}).entry("Android").entry("Android Studio").entry("gradle")
 				if(androidStudioDir.isDirectory() == false) {
 					androidStudioDir = File.forPath(lang "cs" string {{{ System.Environment.GetFolderPath(System.Environment.SpecialFolder.ProgramFilesX86) }}}).entry("Android").entry("Android Studio").entry("gradle")
