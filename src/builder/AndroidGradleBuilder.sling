@@ -38,11 +38,25 @@ func findGradleExecutableForPath(path as string) private as File
 	return null
 }
 
+func getGradleExecutableInEnvironmentVariables as File
+{
+	var path = Environment.getVariable("EQELA_GRADLE_PATH")
+	assert String.isNotEmpty(path)
+	var f = File.forPath(path)
+	assert String.equals(f.getBasenameWithoutExtension(), "gradle")
+	var v = f.asExecutable()
+	assert v.isFile()
+	return v
+}
+
 func findGradleExecutable(ctx as MyContext) private as File
 {
 	var v = ctx.tryFindCommand(ctx.getGradlePath(), "gradle")
 	if v:
 		return v
+	var e = getGradleExecutableInEnvironmentVariables()
+	if e:
+		return e
 	var androidStudioDir = ctx.getAndroidStudioPath()
 	if androidStudioDir == null {
 		if OS.isMacOS() {

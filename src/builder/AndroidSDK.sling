@@ -28,6 +28,14 @@ func findAndroidSDKDirectoryForPath(ff as File) static private as File
 	return null
 }
 
+func getAndroidSDKDirectoryInEnvironmentVariables static as File
+{
+	var path = Environment.getVariable("EQELA_ANDROID_SDK_PATH")
+	assert String.isNotEmpty(path)
+	var f = File.forPath(path)
+	return findAndroidSDKDirectoryForPath(f)
+}
+
 func findAndroidSDKDirectory(ctx as MyContext) static as File
 {
 	var option = ctx.getAndroidSdkPath()
@@ -38,6 +46,9 @@ func findAndroidSDKDirectory(ctx as MyContext) static as File
 		ctx.error("Not a valid Android SDK directory path: `" .. ctx.fileToString(option) .. "'")
 		return null
 	}
+	var e = getAndroidSDKDirectoryInEnvironmentVariables()
+	if e:
+		return e
 	if OS.isMacOS() {
 		var home = Environment.getHomeDirectory()
 		if home {
