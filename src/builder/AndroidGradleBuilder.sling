@@ -51,12 +51,12 @@ func getGradleExecutableInEnvironmentVariables as File
 
 func findGradleExecutable(ctx as MyContext) private as File
 {
-	var v = ctx.tryFindCommand(ctx.getGradlePath(), "gradle")
-	if v:
-		return v
 	var e = getGradleExecutableInEnvironmentVariables()
 	if e:
 		return e
+	var v = ctx.tryFindCommand(ctx.getGradlePath(), "gradle")
+	if v:
+		return v
 	var androidStudioDir = ctx.getAndroidStudioPath()
 	if androidStudioDir == null {
 		if OS.isMacOS() {
