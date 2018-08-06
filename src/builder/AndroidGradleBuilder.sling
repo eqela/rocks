@@ -40,7 +40,7 @@ func findGradleExecutableForPath(path as string) private as File
 
 func findGradleExecutable(ctx as MyContext) private as File
 {
-	var v = ctx.tryFindCommand(ctx.getGradlePath(), "gradle")
+	var v = ctx.tryFindCommand(ctx.getGradlePath(), "gradle", "EQELA_GRADLE_PATH")
 	if v:
 		return v
 	var androidStudioDir = ctx.getAndroidStudioPath()
