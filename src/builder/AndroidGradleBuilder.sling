@@ -41,12 +41,7 @@ func findGradleExecutableForPath(path as string) private as File
 func getGradleExecutableInEnvironmentVariables as File
 {
 	var path = Environment.getVariable("EQELA_GRADLE_PATH")
-	assert String.isNotEmpty(path)
-	var f = File.forPath(path)
-	assert String.equals(f.getBasenameWithoutExtension(), "gradle")
-	var v = f.asExecutable()
-	assert v.isFile()
-	return v
+	return findGradleExecutableForPath(path)
 }
 
 func findGradleExecutable(ctx as MyContext) private as File
