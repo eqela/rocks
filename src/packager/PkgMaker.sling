@@ -1,0 +1,85 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is PackageMaker:
+
+prop installDir as File
+
+func execute(ctx as LoggingContext, sourceDir as File, destinationDir as File, packageInfo as PackageInfo) as bool
+{
+	assert packageInfo
+	assert sourceDir
+	assert destinationDir
+	var tmp = assert TemporaryDirectory.create():
+		Log.error(ctx, "Failed to create temporary directory")
+	var v = doExecute(ctx, sourceDir, destinationDir, packageInfo, tmp)
+	tmp.removeRecursive()
+	return v
+}
+
+func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File, packageInfo as PackageInfo, tmp as File) private as bool
+{
+	var idir = installDir
+	if not idir:
+		idir = File.forPath("/Library")
+	idir = idir.entry(packageInfo.getName())
+	var executables = String.split(packageInfo.getExecutables(), ',')
+	if Vector.getSize(executables) > 0 {
+		var scriptBuilder = new StringBuilder()
+		scriptBuilder.append("#! /bin/sh")
+		scriptBuilder.append("#\n")
+		foreach executable in executables {
+			scriptBuilder.append("ln -sfn '")
+			scriptBuilder.append(idir.getPath())
+			scriptBuilder.append("/")
+			scriptBuilder.append(executable)
+			scriptBuilder.append("' '/usr/bin/")
+			scriptBuilder.append(executable)
+			scriptBuilder.append("'")
+		}
+		scriptBuilder.append("\n")
+		scriptBuilder.append("exit 0")
+		var postinstallScript = tmp.entry("postinstall")
+		assert postinstallScript.setContentsUTF8(scriptBuilder.toString()):
+			Log.error(ctx, "Failed to write file: `" .. postinstallScript.getPath() .. "'")
+	}
+	var pkgbuildExec = Environment.findCommand("pkgbuild")
+	if pkgbuildExec == null || pkgbuildExec.isFile() == false:
+		pkgbuildExec = File.forPath("/usr/bin/pkgbuild")
+	assert pkgbuildExec && pkgbuildExec.isFile():
+		Log.error(ctx, "Failed to find command: `pkgbuild'")
+	var pl = assert ProcessLauncher.forFile(pkgbuildExec):
+		Log.error(ctx, "Failed to create process launcher for file: `" .. pkgbuildExec.getPath() .. "'")
+	pl.addToParams("--root")
+	pl.addToParams(sourceDir.getPath())
+	pl.addToParams("--install-location")
+	pl.addToParams(idir.getPath())
+	pl.addToParams("--scripts")
+	pl.addToParams(tmp.getPath())
+	pl.addToParams("--identifier")
+	pl.addToParams(packageInfo.getName())
+	pl.addToParams("--version")
+	pl.addToParams(packageInfo.getVersion())
+	var finalFile = destinationDir.entry(packageInfo.getName() .. "_" .. packageInfo.getVersion() .. "_" .. packageInfo.getPlatform() .. ".pkg")
+	pl.addToParams(finalFile.getPath())
+	var sb = new StringBuilder()
+	assert pl.executeToStringBuilder(sb) == 0:
+		Log.error(ctx, "[MacPackageInstaller] error:\n\n" .. sb.toString())
+	Log.info(ctx, finalFile.getPath())
+	return true
+}

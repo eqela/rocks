@@ -17,12 +17,13 @@
 #
 
 use eqela:jsh:r3
-use eqela:slingbuild:r8
-set version r3
+use eqela:slingbuild:r11
+set version r4
 
 main {
 	call buildBuilder
 	call buildPomtool
+	call buildPackager
 	eqela:slingbuild buildEqelaPackageFile files=build/release name=rocks vendor=eqela version=${version}
 }
 
@@ -32,6 +33,10 @@ buildBuilder {
 
 buildPomtool {
 	eqela:slingbuild buildEqelaPackageDll src=src/pomtool output=build/release
+}
+
+buildPackager {
+	eqela:slingbuild buildEqelaPackageDll src=src/packager output=build/release
 }
 
 clean {

@@ -1,0 +1,226 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is PackageMaker:
+
+import capex.crypto
+import capex.archive
+import capex.text
+
+prop installerVersion = "200"
+prop wixPath as File
+
+func sanitize(str as string) private as string
+{
+	var v = String.strip(str)
+	assert String.isNotEmpty(v)
+	var itr = assert String.iterate(v)
+	var sb = new StringBuilder()
+	loop {
+		var c = itr.getNextChar()
+		if c < 1:
+			break
+		if((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || c == 46 || c == 95 || (c >= 97 && c <= 122)):
+			sb.append(c)
+	}
+	return sb.toString()
+}
+
+func constructComponents(dir as File, xml as XMLMaker, componentMap as DynamicMap, prefix as string) as bool
+{
+	assert dir && xml
+	var itr = assert dir.entries()
+	loop {
+		var f = itr.next()
+		if not f:
+			break
+		if f.isDirectory() {
+			assert constructComponents(f, xml, componentMap, prefix .. "_" .. f.getBasename())
+			continue
+		}
+		var name = f.getBasename()
+		assert String.isNotEmpty(name)
+		var sanitizedName = sanitize(name)
+		assert String.isNotEmpty(sanitizedName)
+		var componentId = "Component" .. sanitizedName
+		var fileId = "File" .. sanitizedName
+		var guid = GUIDGenerator.forString("component_name" .. prefix .. "_" .. name)
+		componentMap.set(componentId, guid)
+		xml.start("Component", { "Id" : componentId, "Guid" : guid })
+		xml.start("File", { "Id" : fileId, "Name" : name, "DiskId" : "1", "Source" : name, "KeyPath" : "yes" })
+		xml.end("File")
+		xml.end("Component")
+	}
+	return true
+}
+
+func generateXml(tmp as File, packageInfo as PackageInfo) private as string
+{
+	var manufacturer = packageInfo.getVendor()
+	var package = packageInfo.getName()
+	var version = packageInfo.getVersion()
+	var productGUID = GUIDGenerator.forString(manufacturer .. ":" .. package .. ":" .. version)
+	var upgradeGUID = GUIDGenerator.forString(manufacturer .. ":" .. package)
+	var componentGUID = GUIDGenerator.forString(manufacturer .. ":" .. package .. "_component")
+	var xml = new XMLMaker()
+	// xml.setHeader("<?xml version=\"1.0\" encoding=\"windows-1252\"?>")
+	xml.start("Wix", { "xmlns" : "http://schemas.microsoft.com/wix/2006/wi" })
+	xml.start("Product", {
+		"Name" : package,
+		"Id" : productGUID,
+		"UpgradeCode" : upgradeGUID,
+		"Language" : "1033",
+		"Codepage" : "1252",
+		"Version" : version,
+		"Manufacturer" : manufacturer
+	})
+	xml.element("Package", {
+		"Id" : "*",
+		"Keywords" : "Installer",
+		"Description" : packageInfo.getDescription(),
+		"Manufacturer" : manufacturer,
+		"InstallerVersion" : installerVersion,
+		"Languages" : "1033",
+		"Compressed" : "yes",
+		"SummaryCodepage" : "1252"
+	})
+	xml.element("Media", {
+		"Id" : "1",
+		"Cabinet" : "data.cab",
+		"EmbedCab" : "yes",
+		"DiskPrompt" : packageInfo.getTitle() .. " Installation"
+	})
+	xml.element("Property", {
+		"Id" : "DiskPrompt",
+		"Value" : packageInfo.getTitle() .. " Installation"
+	})
+	xml.start("Directory", { "Id" : "TARGETDIR", "Name" : "SourceDir" })
+	xml.start("Directory", { "Id" : "ProgramFilesFolder", "Name" : "PFiles" })
+	xml.start("Directory", { "Id" : "RootFolder", "Name" : manufacturer })
+	xml.start("Directory", { "Id" : "INSTALLDIR", "Name" : package })
+	var componentMap = new DynamicMap()
+	assert constructComponents(tmp, xml, componentMap, "")
+	xml.end("Directory")
+	xml.end("Directory")
+	xml.end("Directory")
+	xml.start("Directory", { "Id" : "ProgramMenuFolder", "Name" : "Programs" })
+	xml.start("Directory", { "Id" : "ProgramMenuDir", "Name" : package })
+	xml.start("Component", { "Id" : "ProgramMenuDir", "Guid" : componentGUID })
+	xml.element("RemoveFolder",  { "Id" : "ProgramMenuDir", "On" : "uninstall" })
+	xml.element("RegistryValue", {
+		"Root" : "HKCU",
+		"Key" : "Software\[Manufacturer]\[ProductName]",
+		"Type" : "string",
+		"Value" : "",
+		"KeyPath" : "yes"
+	})
+	if String.isNotEmpty(packageInfo.getExecutables()) {
+		xml.element("Environment", {
+			"Id" : "PATH",
+			"Name" : "PATH",
+			"Value" : "[INSTALLDIR]",
+			"Permanent" : "no",
+			"Part" : "last",
+			"Action" : "set",
+			"System" : "no"
+		})
+	}
+	xml.end("Component")
+	xml.end("Directory")
+	xml.end("Directory")
+	xml.start("Directory", { "Id" : "DesktopFolder", "Name" : "Desktop" })
+	xml.end("Directory")
+	xml.end("Directory")
+	xml.start("Feature", { "Id" : "Complete", "Level" : "1" })
+	foreach componentId in componentMap.getKeys():
+		xml.element("ComponentRef", { "Id" : componentId })
+	xml.element("ComponentRef", { "Id" : "ProgramMenuDir" })
+	xml.end("Feature")
+	xml.element("UIRef", { "Id" : "WixUI_Minimal" })
+	xml.end("Product")
+	xml.end("Wix")
+	return xml.toString()
+}
+
+func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File, packageInfo as PackageInfo, tmp as File) private as bool
+{
+	Log.status(ctx, "Copying files .. ")
+	assert sourceDir.copyFileOrDirectoryTo(tmp):
+		Log.error(ctx, "Failed to copy source directory: '" .. sourceDir.getPath() .. "'.")
+	var wxs = tmp.entry("installer.wxs")
+	Log.status(ctx, "Generating configuration .. ")
+	var contents = generateXml(tmp, packageInfo)
+	assert wxs.setContentsUTF8(contents):
+		Log.error(ctx, "Failed to write file: `" .. wxs.getPath() .. "'")
+	var candleExe as File
+	var lightExe as File
+	if wixPath {
+		candleExe = wixPath.entry("candle").asExecutable()
+		assert candleExe && candleExe.isFile():
+			Log.error(ctx, "File does not exist: `" .. candleExe.getPath() .. "'")
+		lightExe = wixPath.entry("light").asExecutable()
+		assert lightExe && lightExe.isFile():
+			Log.error(ctx, "File does not exist: `" .. lightExe.getPath() .. "'")
+	}
+	else {
+		assert candleExe = Environment.findCommand("candle"):
+			Log.error(ctx, "Wix command not found: `candle'")
+		assert lightExe = Environment.findCommand("light"):
+			Log.error(ctx, "Wix command not found: `light'")
+	}
+	Log.status(ctx, "Compiling installer .. ")
+	var candle = assert ProcessLauncher.forFile(candleExe):
+		Log.error(ctx, "Failed to create process launcher for file: `" .. candleExe.getPath() .. "'")
+	candle.setCwd(tmp)
+	candle.addToParams("-o")
+	candle.addToParams("installer.wixobj")
+	candle.addToParams(wxs.getBasename())
+	var sb = new StringBuilder()
+	assert candle.executeToStringBuilder(sb) == 0:
+		Log.error(ctx, "Wix candle error: " .. sb.toString())
+	var light = assert ProcessLauncher.forFile(lightExe):
+		Log.error(ctx, "Failed to create process launcher for file: `" .. lightExe.getPath() .. "'")
+	light.setCwd(tmp)
+	var msi = tmp.entry(packageInfo.getName() .. "_" .. packageInfo.getVersion() .. "_" .. packageInfo.getPlatform() .. ".msi")
+	light.addToParams("-ext")
+	light.addToParams("WixUIExtension")
+	light.addToParams("-cultures:en-us")
+	light.addToParams("-o")
+	light.addToParams(msi.getBasename())
+	light.addToParams("installer.wixobj")
+	assert light.executeToStringBuilder(sb) == 0:
+		Log.error(ctx, "Wix light error: " .. sb.toString())
+	if not destinationDir.isDirectory():
+		assert destinationDir.createDirectoryRecursive()
+	var finalFile = destinationDir.entry(msi.getBasename())
+	assert msi.copyFileTo(finalFile)
+	Log.info(ctx, finalFile.getPath())
+	return true
+}
+
+func execute(ctx as LoggingContext, sourceDir as File, destinationDir as File, packageInfo as PackageInfo) as bool
+{
+	assert packageInfo
+	assert sourceDir
+	assert destinationDir
+	var tmp = assert TemporaryDirectory.create():
+		Log.error(ctx, "Failed to create temporary directory")
+	var v = doExecute(ctx, sourceDir, destinationDir, packageInfo, tmp)
+	tmp.removeRecursive()
+	return v
+}
