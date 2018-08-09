@@ -24,6 +24,7 @@ import capex.text
 
 prop installerVersion = "200"
 prop wixPath as File
+prop useInstallerGui = false
 
 func sanitize(str as string) private as string
 {
@@ -81,7 +82,7 @@ func generateXml(tmp as File, packageInfo as PackageInfo) private as string
 	// xml.setHeader("<?xml version=\"1.0\" encoding=\"windows-1252\"?>")
 	xml.start("Wix", { "xmlns" : "http://schemas.microsoft.com/wix/2006/wi" })
 	xml.start("Product", {
-		"Name" : package,
+		"Name" : packageInfo.getTitle(),
 		"Id" : productGUID,
 		"UpgradeCode" : upgradeGUID,
 		"Language" : "1033",
@@ -151,7 +152,8 @@ func generateXml(tmp as File, packageInfo as PackageInfo) private as string
 		xml.element("ComponentRef", { "Id" : componentId })
 	xml.element("ComponentRef", { "Id" : "ProgramMenuDir" })
 	xml.end("Feature")
-	xml.element("UIRef", { "Id" : "WixUI_Minimal" })
+	if useInstallerGui:
+		xml.element("UIRef", { "Id" : "WixUI_Minimal" })
 	xml.end("Product")
 	xml.end("Wix")
 	return xml.toString()
@@ -197,9 +199,11 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File,
 		Log.error(ctx, "Failed to create process launcher for file: `" .. lightExe.getPath() .. "'")
 	light.setCwd(tmp)
 	var msi = tmp.entry(packageInfo.getName() .. "_" .. packageInfo.getVersion() .. "_" .. packageInfo.getPlatform() .. ".msi")
-	light.addToParams("-ext")
-	light.addToParams("WixUIExtension")
-	light.addToParams("-cultures:en-us")
+	if useInstallerGui {
+		light.addToParams("-ext")
+		light.addToParams("WixUIExtension")
+		light.addToParams("-cultures:en-us")
+	}
 	light.addToParams("-o")
 	light.addToParams(msi.getBasename())
 	light.addToParams("installer.wixobj")
