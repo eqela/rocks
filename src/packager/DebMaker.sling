@@ -55,7 +55,7 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destDir as File, packag
 	var filedir = tmpsource.entry("opt").entry(packageInfo.getName())
 	assert filedir.createDirectoryRecursive():
 		Log.error(ctx, "Failed to create source directory.")
-	Log.status(ctx, "Copying files .. ")
+	Log.status(ctx, "[deb] Copying files .. ")
 	assert sourceDir.copyFileOrDirectoryTo(filedir):
 		Log.error(ctx, "Failed to copy source directory: `" .. sourceDir.getPath() .. "'.")
 	var controlDir = tmp.entry("control")
@@ -65,7 +65,7 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destDir as File, packag
 	var arch = toDebianArchitecture(packageInfo.getPlatform())
 	if String.isEmpty(arch):
 		arch = "all"
-	Log.status(ctx, "Generating installer .. ")
+	Log.status(ctx, "[deb] Generating installer .. ")
 	var sb = new StringBuilder()
 	sb.append("Package: ")
 	sb.append(packageInfo.getName())

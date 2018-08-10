@@ -57,6 +57,7 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File,
 		var postinstallScript = tmp.entry("postinstall")
 		assert postinstallScript.setContentsUTF8(scriptBuilder.toString()):
 			Log.error(ctx, "Failed to write file: `" .. postinstallScript.getPath() .. "'")
+		postinstallScript.setMode(493)
 	}
 	var pkgbuildExec = Environment.findCommand("pkgbuild")
 	if pkgbuildExec == null || pkgbuildExec.isFile() == false:
@@ -77,6 +78,7 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File,
 	pl.addToParams(packageInfo.getVersion())
 	var finalFile = destinationDir.entry(packageInfo.getName() .. "_" .. packageInfo.getVersion() .. "_" .. packageInfo.getPlatform() .. ".pkg")
 	pl.addToParams(finalFile.getPath())
+	Log.status(ctx, "[pkg] Generating installer .. ")
 	var sb = new StringBuilder()
 	assert pl.executeToStringBuilder(sb) == 0:
 		Log.error(ctx, "[MacPackageInstaller] error:\n\n" .. sb.toString())

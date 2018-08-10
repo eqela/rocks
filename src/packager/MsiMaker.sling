@@ -161,11 +161,11 @@ func generateXml(tmp as File, packageInfo as PackageInfo) private as string
 
 func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File, packageInfo as PackageInfo, tmp as File) private as bool
 {
-	Log.status(ctx, "Copying files .. ")
+	Log.status(ctx, "[msi] Copying files .. ")
 	assert sourceDir.copyFileOrDirectoryTo(tmp):
 		Log.error(ctx, "Failed to copy source directory: '" .. sourceDir.getPath() .. "'.")
 	var wxs = tmp.entry("installer.wxs")
-	Log.status(ctx, "Generating configuration .. ")
+	Log.status(ctx, "[msi] Generating configuration .. ")
 	var contents = generateXml(tmp, packageInfo)
 	assert wxs.setContentsUTF8(contents):
 		Log.error(ctx, "Failed to write file: `" .. wxs.getPath() .. "'")
@@ -185,7 +185,7 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File,
 		assert lightExe = Environment.findCommand("light"):
 			Log.error(ctx, "Wix command not found: `light'")
 	}
-	Log.status(ctx, "Compiling installer .. ")
+	Log.status(ctx, "[msi] Compiling installer .. ")
 	var candle = assert ProcessLauncher.forFile(candleExe):
 		Log.error(ctx, "Failed to create process launcher for file: `" .. candleExe.getPath() .. "'")
 	candle.setCwd(tmp)
