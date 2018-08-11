@@ -41,14 +41,14 @@ func doExecute(ctx as LoggingContext, sourceDir as File, destinationDir as File,
 	var executables = String.split(packageInfo.getExecutables(), ',')
 	if Vector.getSize(executables) > 0 {
 		var scriptBuilder = new StringBuilder()
-		scriptBuilder.append("#! /bin/sh")
+		scriptBuilder.append("#! /bin/sh\n")
 		scriptBuilder.append("#\n")
 		foreach executable in executables {
 			scriptBuilder.append("ln -sfn '")
 			scriptBuilder.append(idir.getPath())
 			scriptBuilder.append("/")
 			scriptBuilder.append(executable)
-			scriptBuilder.append("' '/usr/bin/")
+			scriptBuilder.append("' '/usr/local/bin/")
 			scriptBuilder.append(executable)
 			scriptBuilder.append("'")
 		}
