@@ -124,16 +124,21 @@ func execute(ctx as MyContext, sourceDirectory as File, destinationDirectory as 
 			builddir = builddir.entry("publish")
 			ee = builddir.entries()
 		}
+		var runtimes as File
 		while ee {
 			var file = ee.next()
 			if not file:
 				break
 			var bn = file.baseName()
+			if String.equals(bn, "runtimes") && runtimes == null:
+				runtimes = file
 			var dest = destdir.entry(bn)
 			ctx.debug("Copying `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "' ..")
 			assert file.copyFileOrDirectoryTo(dest):
 				ctx.error("Failed to copy `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dest) .. "'")
 		}
+		if runtimes:
+			copyFile(ctx, runtimes, destdir)
 		var see = dir.entries()
 		while see {
 			var file = see.next()
@@ -149,4 +154,29 @@ func execute(ctx as MyContext, sourceDirectory as File, destinationDirectory as 
 		}
 	}
 	return true
+}
+
+func copyFile(ctx as MyContext, file as File, dest as File)
+{
+	assert file
+	assert dest
+	if file.isFile() {
+		var bn = file.baseName()
+		var dt = dest.entry(bn)
+		if dt.isFile():
+			return
+		ctx.debug("Copying `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dt) .. "' ..")
+		assert file.copyFileTo(dt):
+			ctx.error("Failed to copy `" .. ctx.fileToString(file) .. "' -> `" .. ctx.fileToString(dt) .. "'")
+		return
+	}
+	if file.isDirectory() {
+		var ee = file.entries()
+		while ee {
+			var ef = ee.next()
+			if not ef:
+				break
+			copyFile(ctx, ef, dest)
+		}
+	}
 }
