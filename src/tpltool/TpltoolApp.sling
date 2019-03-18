@@ -1,0 +1,90 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2019 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is ConsoleApplicationMain:
+
+import capex.console
+import capex.text
+
+var sources as vector<File>
+var output as File
+
+func initialize override as bool
+{
+	foreach arg in args {
+		if arg.isParameter() {
+			if not sources:
+				sources = new vector<File>
+			sources += File.forPath(arg.parameter)
+		}
+		else if arg.isOption("output") {
+			output = File.forPath(arg.value)
+		}
+		else {
+			arg.reportAsUnsupported(ctx)
+			return false
+		}
+	}
+	return true
+}
+
+func execute override as bool
+{
+	assert output:
+		Log.error(ctx, "No output directory specified")
+	foreach source in sources {
+		var ff = FileFinder.forRoot(source)
+		loop {
+			var file = ff.next()
+			if not file:
+				break
+			if not file.isFile():
+				continue
+			var rp = file.getRelativePath(source, null)
+			if not rp:
+				continue
+			var isTemplate = false
+			if String.endsWith(rp, ".t") {
+				rp = String.getSubString(rp, 0, String.getLength(rp) - 2)
+				isTemplate = true
+			}
+			if String.endsWith(rp, ".html") && String.equals(rp, "index.html") == false:
+				rp = String.getSubString(rp, 0, String.getLength(rp) - 5) .. "/index.html"
+			var dest = output
+			foreach comp in String.split(rp, '/'):
+				dest = dest.entry(comp)
+			dest.getParent().createDirectoryRecursive()
+			if isTemplate {
+				var tt = assert TextTemplate.forFile(file, "<%", "%>", TextTemplate.TYPE_HTML, sources, null, ctx):
+					Log.error(ctx, "Failed to process template file `" .. file.getPath() .. "'")
+				var str = assert tt.execute(null, null):
+					Log.error(ctx, "Failed to execute template file `" .. file.getPath() .. "'")
+				assert dest.setContentsUTF8(str):
+					Log.error(ctx, "Failed to write file `" .. dest.getPath() .. "'")
+			}
+			else {
+				assert file.copyFileTo(dest):
+					Log.error(ctx, "Failed to copy file `" .. file.getPath() .. "' to `" .. dest.getPath() .. "'")
+			}
+		}
+	}
+	return true
+}
+
+main:
+	return executeMain(new this(), args)
