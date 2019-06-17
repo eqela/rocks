@@ -34,6 +34,7 @@ prop podPath as File
 prop xcodebuildPath as File
 prop androidSdkPath as File
 prop androidStudioPath as File
+prop mavenPath as File
 prop buildRelease = false
 prop targetPlatform as string
 prop updateDependencies = true
