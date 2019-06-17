@@ -85,7 +85,7 @@ func execute(fileName as string, original as string, modified as string) static 
 	var blocknlines as int
 	var msb = new StringBuilder()
 	msb.append("diff -u a/" .. fileName .. " b/" .. fileName .. "\n")
-	var timeNow = DateTime.forNow()
+	var timeNow = DateTime.forUTCNow()
 	var timeString = timeNow.toStringDateTime() .. ".000000000 +0000"
 	msb.append("--- a/" .. fileName .. " " .. timeString .. "\n")
 	msb.append("+++ b/" .. fileName .. " " .. timeString .. "\n")

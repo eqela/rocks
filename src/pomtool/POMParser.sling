@@ -895,6 +895,29 @@ func execute override
 			pom.setOrganization(o)
 			continue
 		}
+		var profiles = acceptStartElement("profiles")
+		if profiles {
+			loop {
+				var profile = acceptStartElement("profile")
+				if profile {
+					loop {
+						var id = acceptStringElementData("id")
+						if id:
+							continue
+						if acceptEndElement(profile):
+							break
+						expect("profile data")
+					}
+					// FIXME: Process
+					continue
+				}
+				if acceptEndElement(profiles):
+					break
+				expect("profiles data")
+			}
+			// FIXME: Actually process profiles
+			continue
+		}
 		var developers = acceptStartElement("developers")
 		if developers {
 			var devs = assert parsePersonList(developers, "developer")
