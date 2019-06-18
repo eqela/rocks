@@ -1,0 +1,89 @@
+
+/*
+ * This file is part of Eqela Rocks
+ * Copyright (c) 2018 Eqela Oy
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+class is Builder:
+
+func getBuilderId as string:
+	return "javaMaven"
+
+func canBuild(dir as File) as bool
+{
+	assert dir
+	if dir.entry("pom.xml").isFile():
+		return true
+	return false
+}
+
+func execute(ctx as MyContext, sourceDirectory as File, destinationDirectory as File) as bool
+{
+	var dir = assert sourceDirectory:
+		ctx.error("No source directory")
+	assert dir.isDirectory():
+		ctx.error("Source directory does not exist: `" .. ctx.fileToString(dir) .. "'")
+	ctx.debug("Using source directory: `" .. ctx.fileToString(dir) .. "'")
+	var mvnExe = assert ctx.findCommand(ctx.getMavenPath(), "mvn"):
+		ctx.error("Failed to find `mvn' executable")
+	ctx.debug("Using maven command: `" .. ctx.fileToString(mvnExe) .. "'")
+	var pomFile = dir.entry("pom.xml")
+	assert pomFile.isFile():
+		ctx.error("Source directory does not have a pom.xml")
+	var errorBuffer as StringBuilder
+	if ctx.isDebug():
+		errorBuffer = new cape.StringBuilder()
+	var pl = ProcessLauncher.forFile(mvnExe)
+	pl.addToParams("package")
+	pl.setErrorBuffer(errorBuffer)
+	pl.setCwd(dir)
+	ctx.debug("Executing maven command: `" .. pl.toString() .. "'")
+	var r = pl.execute()
+	if r != 0 {
+		ctx.error("Maven build returned an error status: " .. String.forInteger(r))
+		if errorBuffer && errorBuffer.count() > 0:
+			ctx.error("Maven execution error buffer: `" .. errorBuffer.toString() .. "'")
+		return false
+	}
+	else {
+		if errorBuffer && errorBuffer.count() > 0:
+			ctx.debug("Maven execution error buffer: `" .. errorBuffer.toString() .. "'")
+	}
+	ctx.debug("Maven build succesful")
+	var target = dir.entry("target")
+	if target && destinationDirectory {
+		var jarFile as File
+		var iter = target.entries()
+		while iter {
+			var ff = iter.next()
+			if not ff:
+				break
+			if ff.hasExtension("jar") {
+				jarFile = ff
+				break
+			}
+		}
+		if jarFile {
+			var dest = destinationDirectory.entry(jarFile.baseName())
+			ctx.debug("Copying `" .. ctx.fileToString(jarFile) .. "' -> `" .. ctx.fileToString(dest) .. "' ..")
+			assert jarFile.copyFileTo(dest):
+				ctx.error("Failed to copy `" .. ctx.fileToString(jarFile) .. "' -> `" .. ctx.fileToString(dest) .. "'")
+		}
+		else {
+			ctx.error("Failed to find generated jar file to copy to output directory")
+		}
+	}
+	return true
+}

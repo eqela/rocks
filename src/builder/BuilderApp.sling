@@ -97,6 +97,9 @@ func execute override as bool
 		else if arg.isOption("androidStudioPath") {
 			ctx.setAndroidStudioPath(File.forPath(arg.getStringValue()))
 		}
+		else if arg.isOption("mavenPath") {
+			ctx.setMavenPath(File.forPath(arg.getStringValue()))
+		}
 		else if arg.isOption("libdir") {
 			ctx.addToLibdirs(File.forPath(arg.getStringValue()))
 		}
@@ -118,6 +121,7 @@ func execute override as bool
 	builders += new NetCoreBuilder()
 	builders += new NPMBuilder()
 	builders += new XCodeProjectBuilder()
+	builders += new JavaMavenBuilder()
 	var builder as Builder
 	if useBuilder {
 		foreach bb in builders {
